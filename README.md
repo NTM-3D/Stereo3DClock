@@ -32,7 +32,7 @@ floats through the scene and is depth-sorted with the rest of the objects.
 - **Interlaced** – alternating rows for line-interlaced 3D displays.
 - **Half TAB** – top-and-bottom, each eye squeezed into half height.
 - **Half SBS** – side-by-side, each eye squeezed into half width.
-- **WebXR** – side-by-side, each eye squeezed into half width.
+- **WebXR** – stereo views provided per eye.
 
 A "Swap eyes" option is available if a display's left/right output is reversed.
 
