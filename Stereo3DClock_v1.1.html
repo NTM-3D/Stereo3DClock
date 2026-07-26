@@ -1,0 +1,1435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stereo 3D Clock</title>
+<style>
+  :root{
+    --bg: #060a10; --panel: #0c131c; --panel-2: #0f1822; --line: #1b2733;
+    --text: #d7e4ea; --muted: #64798a; --teal: #4fd8c4; --amber: #e8a33d;
+  }
+  *{ box-sizing: border-box; }
+  html, body{
+    margin:0; padding:0;
+    background: var(--bg); color: var(--text);
+    font-family: "IBM Plex Mono", "Space Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  #menu{ width: min(480px, 92vw); margin: 0 auto; padding: 40px 0 60px; }
+  .card{
+    background: var(--panel); border: 1px solid var(--line); border-radius: 4px;
+    padding: 32px 32px 28px; position: relative;
+  }
+  .card-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
+  h1{ font-size: 22px; font-weight: 500; letter-spacing: .01em; margin:0; color: var(--text); }
+  .help-btn{
+    width:30px; height:30px; flex:none; background: var(--panel-2); color: var(--teal);
+    border: 1px solid var(--line); border-radius: 3px; font-size: 15px; font-weight: 600;
+    font-family: inherit; cursor: pointer;
+  }
+  .field{ margin-bottom: 22px; }
+  .field-head{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom: 8px; }
+  .field-head label{ font-size: 13px; color: var(--text); }
+  .readout{ font-size: 13px; color: var(--amber); min-width: 34px; text-align:right; }
+  input[type="range"]{
+    -webkit-appearance:none; appearance:none; width:100%; height: 2px;
+    background: var(--line); border-radius:1px;
+  }
+  input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none; appearance:none; width:14px; height:14px; border-radius:2px;
+    background: var(--teal); cursor:pointer; border: 1px solid #06120f;
+  }
+  input[type="range"]::-moz-range-thumb{
+    width:14px; height:14px; border-radius:2px; background: var(--teal); cursor:pointer; border: 1px solid #06120f;
+  }
+  select{
+    width:100%; padding: 9px 10px; font-size: 13px; background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--line); border-radius: 3px; font-family: inherit;
+  }
+  .check-row{
+    display:flex; align-items:center; gap:10px; padding: 10px 12px;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 3px;
+  }
+  .check-row input{ width:15px; height:15px; accent-color: var(--teal); }
+  .check-row label{ font-size: 13px; cursor:pointer; }
+  .start-btn{
+    width:100%; margin-top: 8px; padding: 13px 16px; font-size: 13px; letter-spacing:.06em;
+    text-transform:uppercase; background: var(--teal); color: #06120f; font-weight:600;
+    border:none; border-radius: 3px; cursor:pointer; font-family: inherit;
+  }
+  .credit{ margin-top: 16px; font-size: 11px; color: var(--muted); text-align:center; }
+  #help{
+    position: fixed; inset: 0; z-index: 100; background: rgba(3,6,10,0.78);
+    display:flex; align-items:center; justify-content:center;
+  }
+  #help[hidden]{ display:none; }
+  .help-card{
+    width: min(420px, 92vw); max-height: 90vh; overflow-y: auto; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 4px; padding: 24px 28px 26px;
+  }
+  .help-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; }
+  .help-head h2{ font-size:16px; font-weight:500; margin:0; color:var(--text); letter-spacing:.02em; }
+  .help-close{
+    width:28px; height:28px; background:var(--panel-2); color:var(--muted);
+    border:1px solid var(--line); border-radius:3px; font-size:16px; line-height:1;
+    cursor:pointer; font-family:inherit;
+  }
+  .help-section-title{
+    margin: 16px 0 8px; font-size: 12px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: .05em; color: var(--teal); border-top: 1px solid var(--line); padding-top: 12px;
+  }
+  .hotkeys{ width:100%; border-collapse:collapse; margin-bottom:16px; }
+  .hotkeys td{ padding:7px 4px; font-size:12.5px; border-bottom:1px solid var(--line); vertical-align:middle; }
+  .hotkeys tr:last-child td{ border-bottom:none; }
+  .hotkeys td:first-child{ width:150px; color:var(--muted); white-space:nowrap; }
+  kbd{
+    display:inline-block; min-width:20px; text-align:center; padding:2px 6px; font-size:11px;
+    font-family:inherit; background:var(--panel-2); color:var(--teal);
+    border:1px solid var(--line); border-bottom-width:2px; border-radius:3px;
+  }
+  .copy-btn{
+    width:100%; padding:11px 14px; font-size:12px; letter-spacing:.05em; text-transform:uppercase;
+    background:var(--panel-2); color:var(--teal); font-weight:600; border:1px solid var(--teal);
+    border-radius:3px; cursor:pointer; font-family:inherit;
+  }
+  .copy-note{ margin:10px 0 0; font-size:11px; color:var(--amber); text-align:center; min-height:14px; }
+  #player{ position: fixed; inset:0; width:100%; height:100%; background:#000; }
+  #player[hidden]{ display:none; }
+  #output{ display:block; width:100%; height:100%; }
+  #player.cursor-hidden, #player.cursor-hidden *{ cursor:none; }
+  [hidden]{ display:none !important; }
+</style>
+</head>
+<body>
+  <div id="menu">
+    <div class="card">
+      <div class="card-head">
+        <h1>Stereo 3D Clock</h1>
+        <button class="help-btn" id="helpBtn" title="Help">?</button>
+      </div>
+      <div class="field">
+        <div class="field-head"><label for="depth">Depth</label><span class="readout" id="depthVal">100%</span></div>
+        <input type="range" id="depth" min="0" max="200" value="100">
+      </div>
+      <div class="field">
+        <div class="field-head"><label for="convergence">Convergence</label><span class="readout" id="convVal">100%</span></div>
+        <input type="range" id="convergence" min="0" max="200" value="100">
+      </div>
+      <div class="field">
+        <div class="field-head"><label for="clocksize">Clock text size</label><span class="readout" id="clockSizeVal">100%</span></div>
+        <input type="range" id="clocksize" min="0" max="200" value="100" step="1">
+      </div>
+      <div class="field">
+        <div class="field-head"><label for="scene">Scene</label></div>
+        <select id="scene">
+          <option value="deepspace">Deep Space</option>
+          <option value="neongrid">Neon Grid</option>
+          <option value="cityskyline">City Skyline</option>
+          <option value="snowfall">Snowfall</option>
+          <option value="bubbles">Bubbles</option>
+          <option value="tunnel">Star Tunnel</option>
+          <option value="aurora">Aurora</option>
+          <option value="dunes">Desert Dunes</option>
+          <option value="fireflies">Fireflies</option>
+          <option value="matrix">The Matrix</option>
+        </select>
+      </div>
+      <div class="field">
+        <div class="field-head"><label for="format">Output format</label></div>
+        <select id="format">
+          <option value="interlaced">Interlaced</option>
+          <option value="htab">Half TAB</option>
+          <option value="hsbs">Half SBS</option>
+          <option value="webxr">WebXR</option>
+        </select>
+      </div>
+      <div class="field">
+        <div class="check-row">
+          <input type="checkbox" id="swapEyes">
+          <label for="swapEyes">Swap eyes</label>
+        </div>
+      </div>
+      <div class="field">
+        <div class="check-row">
+          <input type="checkbox" id="perfMode">
+          <label for="perfMode">Performance mode (0.5x res)</label>
+        </div>
+      </div>
+      <button class="start-btn" id="startBtn">Start</button>
+      <p class="credit">Made by: NTM-3D (v1.1)</p>
+    </div>
+  </div>
+
+  <div id="help" hidden>
+    <div class="help-card">
+      <div class="help-head">
+        <h2>Controls</h2>
+        <button class="help-close" id="helpClose">&times;</button>
+      </div>
+      <div class="help-section-title">Keyboard Hotkeys</div>
+      <table class="hotkeys">
+        <tr><td><kbd>OK</kbd>/<kbd>Enter</kbd></td><td>Cycle what &uarr;/&darr; adjusts</td></tr>
+        <tr><td><kbd>Hold OK/Enter</kbd></td><td>Toggle FPS OSD</td></tr>
+        <tr><td><kbd>&uarr;</kbd> / <kbd>&darr;</kbd></td><td>Adjust selected (Text size / Depth / Convergence)</td></tr>
+        <tr><td><kbd>1</kbd>/<kbd>2</kbd> <kbd>3</kbd>/<kbd>4</kbd> <kbd>5</kbd>/<kbd>6</kbd></td><td>Text size / Depth / Convergence shortcuts</td></tr>
+        <tr><td><kbd>&larr;</kbd> / <kbd>&rarr;</kbd></td><td>Previous / next scene</td></tr>
+        <tr><td><kbd>F</kbd></td><td>Fullscreen on / off</td></tr>
+        <tr><td><kbd>Back</kbd>/<kbd>Esc</kbd></td><td>Exit to menu</td></tr>
+      </table>
+      <div class="help-section-title">Touch / WebXR Controls</div>
+      <table class="hotkeys">
+        <tr><td><kbd>Tap twice</kbd></td><td>Cycle what &uarr;/&darr; adjusts</td></tr>
+        <tr><td><kbd>Tap 3 fingers</kbd></td><td>Toggle FPS OSD</td></tr>
+        <tr><td><kbd>Swipe &uarr;/&darr;</kbd></td><td>Adjust selected (Hold to repeat)</td></tr>
+        <tr><td><kbd>Swipe &larr;/&rarr;</kbd></td><td>Previous / next scene</td></tr>
+      </table>
+      <button class="copy-btn" id="copyUrlBtn">Copy auto URL</button>
+      <p class="copy-note" id="copyNote"></p>
+    </div>
+  </div>
+
+  <div id="player" hidden>
+    <canvas id="output"></canvas>
+  </div>
+
+<script>
+(function(){
+  "use strict";
+  const menu = document.getElementById('menu');
+  const player = document.getElementById('player');
+  const outputCanvas = document.getElementById('output');
+  const outCtx = outputCanvas.getContext('2d');
+  const depthSlider = document.getElementById('depth');
+  const convSlider = document.getElementById('convergence');
+  const clockSizeSlider = document.getElementById('clocksize');
+  const sceneSelect = document.getElementById('scene');
+  const formatSelect = document.getElementById('format');
+  const swapEyesBox = document.getElementById('swapEyes');
+  const perfModeBox = document.getElementById('perfMode');
+  const depthVal = document.getElementById('depthVal');
+  const convVal = document.getElementById('convVal');
+  const clockSizeVal = document.getElementById('clockSizeVal');
+  const startBtn = document.getElementById('startBtn');
+  const help = document.getElementById('help');
+  const helpBtn = document.getElementById('helpBtn');
+  const helpClose = document.getElementById('helpClose');
+  const copyUrlBtn = document.getElementById('copyUrlBtn');
+  const copyNote = document.getElementById('copyNote');
+
+  depthSlider.addEventListener('input', () => depthVal.textContent = depthSlider.value + '%');
+  convSlider.addEventListener('input', () => convVal.textContent = convSlider.value + '%');
+  clockSizeSlider.addEventListener('input', () => clockSizeVal.textContent = clockSizeSlider.value + '%');
+
+  function moveFocus(dir) {
+    const focusables = Array.from(menu.querySelectorAll('button, input, select'));
+    const idx = focusables.indexOf(document.activeElement);
+    if (idx === -1) return;
+    const next = idx + dir;
+    if (next >= 0 && next < focusables.length) focusables[next].focus();
+  }
+  [depthSlider, convSlider, clockSizeSlider].forEach(sl => {
+    sl.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowUp') { e.preventDefault(); moveFocus(-1); }
+      else if (e.key === 'ArrowDown') { e.preventDefault(); moveFocus(1); }
+    });
+  });
+
+  helpBtn.addEventListener('click', () => { help.hidden = false; });
+  helpClose.addEventListener('click', () => { help.hidden = true; });
+  help.addEventListener('click', (e) => { if (e.target === help) help.hidden = true; });
+
+  function buildAutoUrl() {
+    const p = new URLSearchParams();
+    p.set('depth', depthSlider.value);
+    p.set('convergence', convSlider.value);
+    p.set('clocksize', clockSizeSlider.value);
+    p.set('scene', sceneSelect.value);
+    p.set('format', formatSelect.value);
+    if (swapEyesBox.checked) p.set('swap', '1');
+    if (perfModeBox.checked) p.set('perf', '1');
+    p.set('auto', '1');
+    const base = location.href.split('?')[0].split('#')[0];
+    return base + '?' + p.toString();
+  }
+  copyUrlBtn.addEventListener('click', () => {
+    const url = buildAutoUrl();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(() => {
+        copyNote.textContent = 'Copied to clipboard';
+        setTimeout(() => copyNote.textContent = '', 2200);
+      }).catch(() => { copyNote.textContent = url; });
+    } else { copyNote.textContent = url; }
+  });
+
+  (function parseArgs(){
+    const q = new URLSearchParams(location.search);
+    const num = k => { const v = parseFloat(q.get(k)); return isNaN(v) ? null : Math.round(v); };
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    let v;
+    v = num('depth');       if (v !== null) { depthSlider.value = clamp(v, 0, 200); depthVal.textContent = depthSlider.value + '%'; }
+    v = num('convergence'); if (v !== null) { convSlider.value = clamp(v, 0, 200); convVal.textContent = convSlider.value + '%'; }
+    v = num('clocksize');   if (v !== null) { clockSizeSlider.value = clamp(v, 0, 200); clockSizeVal.textContent = clockSizeSlider.value + '%'; }
+    if (q.get('scene'))  sceneSelect.value = q.get('scene');
+    if (q.get('format')) formatSelect.value = q.get('format');
+    if (q.get('swap') === '1' || q.get('swap') === 'true') swapEyesBox.checked = true;
+    if (q.get('perf') === '1' || q.get('perf') === 'true') perfModeBox.checked = true;
+    if (q.get('auto') === '1' || q.get('auto') === 'true') { setTimeout(startViewer, 100); }
+  })();
+
+  const leftBuf = document.createElement('canvas');
+  const rightBuf = document.createElement('canvas');
+  const leftCtx = leftBuf.getContext('2d');
+  const rightCtx = rightBuf.getContext('2d');
+  const interlaceMaskCanvas = document.createElement('canvas');
+  interlaceMaskCanvas.width = 1; interlaceMaskCanvas.height = 2;
+  (function(){ const mctx = interlaceMaskCanvas.getContext('2d'); mctx.fillStyle = '#fff'; mctx.fillRect(0, 1, 1, 1); })();
+  const interlacePattern = outCtx.createPattern(interlaceMaskCanvas, 'repeat');
+
+  const WORLD_W = 1920, WORLD_H = 1080, FOCAL = 1200;
+  const Z_NEAR = 250, Z_FAR = 2600, CENTER_Z = (Z_NEAR + Z_FAR) / 2;
+  const MAX_EYE_SEP = 130, DISPARITY_MIN_Z = 150;
+
+  function clockSizeMultiplier(raw) {
+    return raw <= 100 ? (1.0 + (raw / 100) * 1.0) : (2.0 + ((raw - 100) / 100) * 2.0);
+  }
+  function spreadX(z) { return (WORLD_W / 2) * (FOCAL + z) / FOCAL; }
+  function spreadY(z) { return (WORLD_H / 2) * (FOCAL + z) / FOCAL; }
+  function rand(a, b) { return a + Math.random() * (b - a); }
+  function wrapRangeFor(z) { return 2 * (WORLD_H / 2) * (FOCAL + z) / FOCAL * 1.4; }
+
+  let depthPct = 100, convPct = 100, clockSizePct = 100;
+  let sceneId = 'deepspace', format = 'interlaced', swapEyes = false, running = false;
+  let frameInvConvZ = 0, frameEyeSep = 0;
+  let frameEyeH = WORLD_H;
+  let frameWorldH = WORLD_H;
+
+  // --- FPS OSD State & Calculation ---
+  let showFps = false;
+  let fps = 60, frameCount = 0, lastFpsTime = performance.now();
+  function updateFps() {
+    frameCount++;
+    const now = performance.now();
+    const delta = now - lastFpsTime;
+    if (delta >= 500) {
+      fps = Math.round((frameCount * 1000) / delta);
+      frameCount = 0;
+      lastFpsTime = now;
+    }
+  }
+
+  let currentClockStr = "00:00:00";
+  function updateClockTimeStr() {
+    const now = new Date();
+    currentClockStr = pad2(now.getHours()) + ':' + pad2(now.getMinutes()) + ':' + pad2(now.getSeconds());
+  }
+
+  function project(x, y, z, w) {
+    const resScaleX = w / WORLD_W;
+    const resScaleY = frameEyeH / frameWorldH;
+    const scale = FOCAL / (FOCAL + z);
+    return { sx: (w / 2) + x * scale * resScaleX, sy: (frameEyeH / 2) + y * scale * resScaleY, scale: scale * resScaleX };
+  }
+  function disparityFor(z, w) {
+    const resScale = w / WORLD_W;
+    const zSafe = Math.max(z, DISPARITY_MIN_Z);
+    return frameEyeSep * FOCAL * (frameInvConvZ - 1 / zSafe) * resScale;
+  }
+  function projectStereo(x, y, z, w, eyeSign) {
+    const p = project(x, y, z, w);
+    const d = disparityFor(z, w) * eyeSign * 0.5;
+    return { sx: p.sx + d, sy: p.sy, scale: p.scale };
+  }
+  function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+
+  let staticDepthBuf = [];
+  function depthSortedDraw(items, clockZ, drawClockHere) {
+    staticDepthBuf.length = 0;
+    for (let i = 0; i < items.length; i++) staticDepthBuf.push(items[i]);
+    staticDepthBuf.push({ z: clockZ, draw: drawClockHere });
+    staticDepthBuf.sort((a, b) => b.z - a.z);
+    for (let i = 0; i < staticDepthBuf.length; i++) staticDepthBuf[i].draw();
+  }
+
+  const hud = { esc: { text: 'Esc to exit', opacity: 0 }, scene: { text: '', opacity: 0 }, param: { text: '', opacity: 0 } };
+  const hudTimers = {};
+  function showHud(name, text, duration) {
+    hud[name].text = text; hud[name].opacity = 1;
+    clearTimeout(hudTimers[name]);
+    hudTimers[name] = setTimeout(() => { hud[name].opacity = 0; }, duration);
+  }
+  function drawHudText(ctx, text, x, y, fontSize, opacity) {
+    ctx.font = '600 ' + fontSize.toFixed(1) + 'px "IBM Plex Mono", monospace';
+    const tw = ctx.measureText(text).width;
+    const padX = fontSize * 0.8, padY = fontSize * 0.5;
+    ctx.globalAlpha = opacity;
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(x - tw / 2 - padX, y - fontSize / 2 - padY, tw + padX * 2, fontSize + padY * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(text, x, y);
+    ctx.globalAlpha = 1;
+  }
+
+  function drawHud(ctx, w, h, eyeSign) {
+    const s = w / WORLD_W, osdSize = 26 * s;
+    const hudDisp = disparityFor(450, w) * eyeSign * 0.5;
+    const centerX = (w / 2) + hudDisp;
+
+    if (hud.scene.opacity > 0) drawHudText(ctx, hud.scene.text, centerX, h * 0.055, osdSize, hud.scene.opacity);
+    if (hud.param.opacity > 0) drawHudText(ctx, hud.param.text, centerX, h * 0.115, osdSize, hud.param.opacity);
+    if (hud.esc.opacity > 0)   drawHudText(ctx, hud.esc.text,   centerX, h * 0.95,  osdSize, hud.esc.opacity);
+
+    // 3D FPS OSD rendered in upper left corner matching OSD style
+    if (showFps) {
+      const fpsText = fps + ' FPS';
+      ctx.font = '600 ' + osdSize.toFixed(1) + 'px "IBM Plex Mono", monospace';
+      const tw = ctx.measureText(fpsText).width;
+      const padX = osdSize * 0.8;
+      const fpsX = (padX + tw / 2 + 20 * s) + hudDisp;
+      drawHudText(ctx, fpsText, fpsX, h * 0.055, osdSize, 1.0);
+    }
+  }
+
+  const GRID_Y = 560;
+
+  const spaceStars = [];
+  for (let i = 0; i < 340; i++) {
+    const z = rand(Z_NEAR, Z_FAR);
+    spaceStars.push({ x: rand(-1500, 1500), y: rand(-850, 850), z: z, r: rand(1.2, 3.6) });
+  }
+
+  const NEON_SUN_Z = 2400;
+  const neonStars = [];
+  for (let i = 0; i < 60; i++) neonStars.push({ x: rand(-1600, 1600), y: rand(-850, -180), z: rand(2000, Z_FAR), r: rand(0.8, 2.2), tw: rand(0.5, 2), ph: rand(0, 10) });
+  const neonMonoliths = [];
+  [ { x: -680, z: 750, w: 80, h: 380, hue: 185 }, { x: 640, z: 1000, w: 95, h: 460, hue: 300 },
+    { x: -1050, z: 1500, w: 115, h: 560, hue: 200 }, { x: 1000, z: 1850, w: 130, h: 620, hue: 320 },
+    { x: -1350, z: 2250, w: 150, h: 680, hue: 190 }, { x: 1300, z: 2500, w: 165, h: 720, hue: 285 }
+  ].forEach(m => { neonMonoliths.push(m); });
+
+  const CITY_HORIZON_Z = 2500;
+  const cityStars = [];
+  for (let i = 0; i < 110; i++) cityStars.push({ x: rand(-1700, 1700), y: rand(-800, -300), z: rand(2200, Z_FAR), r: rand(0.5, 1.6), tw: rand(0.4, 1.8), ph: rand(0, 10) });
+  const cityBuildings = [];
+  [ { z: 2350, color: '#131e30', n: 14, hMin: 120, hMax: 460, win: false, density: 0 },
+    { z: 2000, color: '#0d1728', n: 12, hMin: 180, hMax: 620, win: false, density: 0 },
+    { z: 1650, color: '#081120', n: 10, hMin: 240, hMax: 780, win: true, density: 0.32 },
+    { z: 1300, color: '#050b18', n: 9,  hMin: 300, hMax: 920, win: true, density: 0.5 }
+  ].forEach(band => {
+    const spread = spreadX(band.z);
+    let x = -spread * 1.05;
+    while (x < spread * 1.05) {
+      const bw = rand(90, 260), bh = rand(band.hMin, band.hMax);
+      const cols = Math.max(2, Math.floor(bw / 34)), rows = Math.max(3, Math.floor(bh / 48));
+      const windows = [];
+      if (band.win) for (let c = 0; c < cols * rows; c++) windows.push(Math.random() < band.density);
+      cityBuildings.push({ x: x + bw / 2, z: band.z + rand(-60, 60), w: bw, h: bh, cols, rows, windows, color: band.color, win: band.win, tall: bh > band.hMax * 0.8, flickerSeed: rand(0, 1000), warm: Math.random() < 0.65 });
+      x += bw + rand(10, 60);
+    }
+  });
+  const traffic = [];
+  for (let i = 0; i < 26; i++) {
+    const dir = i % 2 === 0 ? 1 : -1;
+    traffic.push({ z: dir === 1 ? 1100 : 1160, offset: rand(0, 1), speed: rand(180, 320), dir, color: dir === 1 ? '255,240,200' : '255,80,70' });
+  }
+
+  const snowflakes = [];
+  for (let i = 0; i < 320; i++) {
+    const z = rand(Z_NEAR, Z_FAR), range = wrapRangeFor(z);
+    snowflakes.push({ x: rand(-1600, 1600), z, y0: rand(-range / 2, range / 2), range, speed: rand(60, 160), swayAmp: rand(20, 90), swaySeed: rand(0, 10), r: rand(1.4, 14) });
+  }
+  const bubbles = [];
+  for (let i = 0; i < 220; i++) {
+    const z = rand(Z_NEAR, Z_FAR), range = wrapRangeFor(z);
+    bubbles.push({ x: rand(-1500, 1500), z, y0: rand(-range / 2, range / 2), range, speed: rand(40, 130), swayAmp: rand(15, 60), swaySeed: rand(0, 10), r: rand(3, 30), hue: rand(160, 320) });
+  }
+  const tunnelStars = [];
+  for (let i = 0; i < 260; i++) tunnelStars.push({ angle: rand(0, Math.PI * 2), offset: rand(0, 1), speed: rand(0.14, 0.3), hue: rand(0, 360), size: rand(2, 5) });
+
+  const AURORA_RIDGE_Z = 2100;
+  const auroraStars = [];
+  for (let i = 0; i < 220; i++) {
+    const z = rand(AURORA_RIDGE_Z + 150, Z_FAR);
+    auroraStars.push({ x: rand(-1, 1) * spreadX(z) * 0.95, y: rand(-1, 1) * spreadY(z) * 0.9, z, r: rand(1.8, 3.8), tw: rand(0.4, 1.8), ph: rand(0, 10) });
+  }
+  const AURORA_SCHEMES = [
+    { base: [132, 95, 60], top: [310, 80, 60] },
+    { base: [145, 90, 58], top: [170, 85, 55] },
+    { base: [160, 85, 55], top: [190, 80, 55] },
+    { base: [126, 90, 58], top: [345, 78, 58] },
+    { base: [138, 92, 60], top: [285, 75, 60] }
+  ];
+  const auroraRibbons = [];
+  for (let i = 0; i < 5; i++) {
+    const sc = AURORA_SCHEMES[i % AURORA_SCHEMES.length];
+    auroraRibbons.push({ baseY: rand(-900, -100), z: rand(2120, 2450), amp: rand(90, 200), freq: rand(0.0035, 0.0065), phase: rand(0, 10), speed: rand(0.12, 0.3), rayFreq: rand(0.015, 0.035), rayPhase: rand(0, 10), rayHeight: rand(500, 900), base: sc.base, top: sc.top });
+  }
+  const auroraRidge = [];
+  for (let i = 0; i <= 40; i++) auroraRidge.push({ xf: i / 40, h: rand(40, 170) });
+
+  const duneLayers = [];
+  [{ z: 1950, color: '#3a2340' }, { z: 1350, color: '#5a3550' }, { z: 850, color: '#8a4f5c' }, { z: 480, color: '#c46b52' }].forEach(band => {
+    const points = [];
+    for (let i = 0; i <= 11; i++) points.push({ xf: i / 11, h: rand(40, 190) });
+    duneLayers.push({ z: band.z, color: band.color, points });
+  });
+
+  const fireflies = [];
+  for (let i = 0; i < 220; i++) {
+    const z0 = rand(Z_NEAR + 100, Z_FAR - 200);
+    fireflies.push({ x0: rand(-1, 1) * spreadX(z0) * 0.92, y0: rand(-1, 1) * spreadY(z0) * 0.88, z0, ax: rand(60, 220), ay: rand(40, 160), az: rand(40, 160), fx: rand(0.1, 0.3), fy: rand(0.15, 0.35), fz: rand(0.08, 0.22), px: rand(0, 10), py: rand(0, 10), pz: rand(0, 10), blinkF: rand(0.6, 1.8), blinkP: rand(0, 10), hue: rand(55, 95) });
+  }
+
+  const MATRIX_CHARS = '01ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ';
+  function hashRand(a, b, c) { const x = Math.sin(a * 12.9898 + b * 78.233 + c * 37.719) * 43758.5453; return x - Math.floor(x); }
+  const MATRIX_Z_NEAR = 600, MATRIX_Z_FAR = 2200;
+  const matrixColumns = [];
+  for (let i = 0; i < 90; i++) {
+    const z = rand(MATRIX_Z_NEAR, MATRIX_Z_FAR), range = wrapRangeFor(z);
+    matrixColumns.push({ x: rand(-1, 1) * spreadX(z) * 0.95, z, y0: rand(-range / 2, range / 2), range, speed: rand(140, 380), spacing: rand(30, 46), trail: Math.floor(rand(6, 10)), seed: i * 91.7 });
+  }
+  const GLYPH_CELL = 56, GLYPH_FONT = 40, GLYPH_SCALE = GLYPH_CELL / GLYPH_FONT, ATLAS_COLS = 8;
+  function buildGlyphAtlas(color) {
+    const n = MATRIX_CHARS.length, rows = Math.ceil(n / ATLAS_COLS);
+    const c = document.createElement('canvas');
+    c.width = ATLAS_COLS * GLYPH_CELL; c.height = rows * GLYPH_CELL;
+    const g = c.getContext('2d');
+    g.font = '600 ' + GLYPH_FONT + 'px "IBM Plex Mono", monospace';
+    g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = color;
+    for (let i = 0; i < n; i++) g.fillText(MATRIX_CHARS[i], (i % ATLAS_COLS) * GLYPH_CELL + GLYPH_CELL / 2, Math.floor(i / ATLAS_COLS) * GLYPH_CELL + GLYPH_CELL / 2);
+    return c;
+  }
+  const glyphAtlasGreen = buildGlyphAtlas('rgb(30,220,90)');
+  const glyphAtlasHead = buildGlyphAtlas('rgb(210,255,220)');
+
+  function fillBg(ctx, w, h, color) { ctx.fillStyle = color; ctx.fillRect(0, 0, w, h); }
+  function vGrad(ctx, w, h, stops) {
+    const g = ctx.createLinearGradient(0, 0, 0, h);
+    stops.forEach(s => g.addColorStop(s[0], s[1]));
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+  }
+
+  function drawDeepSpace(ctx, eyeSign, t, w, h, clockZ, drawClockHere) {
+    fillBg(ctx, w, h, '#000');
+    const angle = t * 0.05, cosA = Math.cos(angle), sinA = Math.sin(angle);
+    function starRZ(s) { const zc = s.z - CENTER_Z; return CENTER_Z + (s.x * sinA + zc * cosA); }
+
+    function drawStar(s, rz) {
+      const zc = s.z - CENTER_Z;
+      const rx = s.x * cosA - zc * sinA;
+      const p = projectStereo(rx, s.y, rz, w, eyeSign);
+      const depthFrac = (rz - Z_NEAR) / (Z_FAR - Z_NEAR);
+      const alpha = Math.max(0.15, 1 - depthFrac * 0.85);
+      ctx.beginPath();
+      ctx.fillStyle = 'rgba(180,225,235,' + alpha.toFixed(3) + ')';
+      ctx.arc(p.sx, p.sy, Math.max(0.5, s.r * p.scale), 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    for (let i = 0; i < spaceStars.length; i++) { const rz = starRZ(spaceStars[i]); if (rz > 10 && rz > clockZ) drawStar(spaceStars[i], rz); }
+    drawClockHere();
+    for (let i = 0; i < spaceStars.length; i++) { const rz = starRZ(spaceStars[i]); if (rz > 10 && rz <= clockZ) drawStar(spaceStars[i], rz); }
+  }
+
+  function drawNeonGrid(ctx, eyeSign, t, w, h, clockZ, drawClockHere) {
+    vGrad(ctx, w, h, [[0, '#05020f'], [0.45, '#150829'], [0.60, '#3a1144'], [0.66, '#1a0a2e'], [1, '#05020f']]);
+    const s = w / WORLD_W;
+
+    function drawFloorBase() {
+      const horizonP = projectStereo(0, GRID_Y, Z_FAR, w, eyeSign);
+      const base = ctx.createLinearGradient(0, horizonP.sy, 0, h);
+      base.addColorStop(0, '#1a0a2e'); base.addColorStop(1, '#0a0418');
+      ctx.fillStyle = base;
+      ctx.fillRect(0, horizonP.sy, w, Math.max(0, h - horizonP.sy));
+    }
+    drawFloorBase();
+
+    const zMin = 340, zMax = 2600, ROWS = 13, scroll = (t * 0.3) % 2;
+    function drawTileRow(z0, z1, ri) {
+      const depthFrac = Math.min(1, Math.max(0, ((z0 + z1) / 2 - zMin) / (zMax - zMin)));
+      const fade = Math.pow(1 - depthFrac, 1.4);
+      const a = (0.15 + 0.75 * fade).toFixed(3);
+      const fillA = 'rgba(55,22,85,' + a + ')', fillB = 'rgba(28,11,46,' + a + ')';
+      for (let ci = -15; ci < 15; ci++) {
+        const x0 = ci * 240, x1 = x0 + 240;
+        const p00 = projectStereo(x0, GRID_Y, z0, w, eyeSign), p10 = projectStereo(x1, GRID_Y, z0, w, eyeSign);
+        const p01 = projectStereo(x0, GRID_Y, z1, w, eyeSign), p11 = projectStereo(x1, GRID_Y, z1, w, eyeSign);
+        const checker = ((ri + ci) % 2 + 2) % 2;
+        ctx.beginPath();
+        ctx.moveTo(p00.sx, p00.sy); ctx.lineTo(p10.sx, p10.sy); ctx.lineTo(p11.sx, p11.sy); ctx.lineTo(p01.sx, p01.sy);
+        ctx.closePath();
+        ctx.fillStyle = checker === 0 ? fillA : fillB;
+        ctx.fill();
+      }
+    }
+    for (let ri = 0; ri <= ROWS + 2; ri++) {
+      const fNear = (ri - scroll) / ROWS, fFar = (ri + 1 - scroll) / ROWS;
+      const z0 = zMin + Math.pow(Math.max(0, Math.min(1, fNear)), 1.7) * (zMax - zMin);
+      const z1 = zMin + Math.pow(Math.max(0, Math.min(1, fFar)), 1.7) * (zMax - zMin);
+      if (z1 - z0 < 1) continue;
+      drawTileRow(z0, z1, ri);
+    }
+
+    const items = [];
+    function drawStar(st) {
+      const p = projectStereo(st.x, st.y, st.z, w, eyeSign);
+      const a = 0.25 + 0.5 * (0.5 + 0.5 * Math.sin(t * st.tw + st.ph));
+      ctx.beginPath();
+      ctx.fillStyle = 'rgba(225,205,255,' + a.toFixed(3) + ')';
+      ctx.arc(p.sx, p.sy, Math.max(0.5, st.r * p.scale), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    for (let i = 0; i < neonStars.length; i++) items.push({ z: neonStars[i].z, draw: () => drawStar(neonStars[i]) });
+
+    function drawSun() {
+      const sp = projectStereo(0, -140, NEON_SUN_Z, w, eyeSign);
+      const r = 400 * sp.scale;
+      const glow = ctx.createRadialGradient(sp.sx, sp.sy, r * 0.4, sp.sx, sp.sy, r * 2.2);
+      glow.addColorStop(0, 'rgba(255,110,160,0.28)'); glow.addColorStop(1, 'rgba(255,110,160,0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(sp.sx - r * 2.2, sp.sy - r * 2.2, r * 4.4, r * 4.4);
+      const g = ctx.createLinearGradient(sp.sx, sp.sy - r, sp.sx, sp.sy + r);
+      g.addColorStop(0, '#ffd76a'); g.addColorStop(0.5, '#ff6f9c'); g.addColorStop(1, '#b03fd4');
+      ctx.beginPath(); ctx.fillStyle = g;
+      ctx.arc(sp.sx, sp.sy, r, 0, Math.PI * 2); ctx.fill();
+    }
+    items.push({ z: NEON_SUN_Z, draw: drawSun });
+
+    function drawHorizonGlow() {
+      const horizonP = projectStereo(0, GRID_Y, Z_FAR, w, eyeSign);
+      const glow = ctx.createLinearGradient(0, horizonP.sy - 45 * s, 0, horizonP.sy + 70 * s);
+      glow.addColorStop(0, 'rgba(90,230,255,0)'); glow.addColorStop(0.5, 'rgba(90,230,255,0.32)'); glow.addColorStop(1, 'rgba(255,90,200,0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, horizonP.sy - 45 * s, w, 115 * s);
+    }
+    items.push({ z: NEON_SUN_Z - 50, draw: drawHorizonGlow });
+
+    function drawMonolith(m) {
+      const bottom = projectStereo(m.x, GRID_Y, m.z, w, eyeSign);
+      const top = projectStereo(m.x, GRID_Y - m.h, m.z, w, eyeSign);
+      const mw = m.w * bottom.scale, mh = bottom.sy - top.sy;
+      if (mh <= 0 || mw <= 0) return;
+      const mx = bottom.sx - mw / 2, cy = top.sy + mh / 2;
+      const glow = ctx.createRadialGradient(bottom.sx, cy, 0, bottom.sx, cy, mh * 0.9);
+      glow.addColorStop(0, 'hsla(' + m.hue + ',90%,60%,0.16)'); glow.addColorStop(1, 'hsla(' + m.hue + ',90%,60%,0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(bottom.sx - mh, cy - mh, mh * 2, mh * 2);
+      const g = ctx.createLinearGradient(0, top.sy, 0, bottom.sy);
+      g.addColorStop(0, 'hsla(' + m.hue + ',85%,68%,0.95)'); g.addColorStop(0.45, 'hsla(' + m.hue + ',72%,42%,0.92)'); g.addColorStop(1, 'hsla(' + m.hue + ',65%,18%,0.9)');
+      ctx.fillStyle = g;
+      ctx.fillRect(mx, top.sy, mw, mh);
+      ctx.fillStyle = 'hsla(' + m.hue + ',95%,82%,0.95)';
+      ctx.fillRect(mx, top.sy, mw, Math.max(2, mh * 0.035));
+    }
+    for (let i = 0; i < neonMonoliths.length; i++) items.push({ z: neonMonoliths[i].z, draw: () => drawMonolith(neonMonoliths[i]) });
+    depthSortedDraw(items, clockZ, drawClockHere);
+  }
+
+  function drawCitySkyline(ctx, eyeSign, t, w, h, clockZ, drawClockHere) {
+    vGrad(ctx, w, h, [[0, '#020610'], [0.45, '#061224'], [0.7, '#0c1c30'], [1, '#0a1626']]);
+    const s = w / WORLD_W;
+    const items = [];
+    const moonZ = Z_FAR - 300;
+    function drawCityStar(st) {
+      const p = projectStereo(st.x, st.y, st.z, w, eyeSign);
+      const a = 0.25 + 0.55 * (0.5 + 0.5 * Math.sin(t * st.tw + st.ph));
+      ctx.beginPath(); ctx.fillStyle = 'rgba(215,225,245,' + a.toFixed(3) + ')';
+      ctx.arc(p.sx, p.sy, Math.max(0.4, st.r * p.scale), 0, Math.PI * 2); ctx.fill();
+    }
+    for (let i = 0; i < cityStars.length; i++) items.push({ z: cityStars[i].z, draw: () => drawCityStar(cityStars[i]) });
+
+    function drawMoon() {
+      const mp = projectStereo(650, -500, moonZ, w, eyeSign);
+      const r = 60 * mp.scale;
+      const glow = ctx.createRadialGradient(mp.sx, mp.sy, r * 0.5, mp.sx, mp.sy, r * 3);
+      glow.addColorStop(0, 'rgba(220,230,250,0.25)'); glow.addColorStop(1, 'rgba(220,230,250,0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(mp.sx - r * 3, mp.sy - r * 3, r * 6, r * 6);
+      ctx.beginPath(); ctx.fillStyle = 'rgba(235,240,248,0.95)';
+      ctx.arc(mp.sx, mp.sy, r, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(190,200,220,0.5)';
+      ctx.beginPath();
+      ctx.arc(mp.sx - r * 0.3, mp.sy - r * 0.2, r * 0.18, 0, Math.PI * 2);
+      ctx.arc(mp.sx + r * 0.25, mp.sy + r * 0.3, r * 0.12, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    items.push({ z: moonZ, draw: drawMoon });
+
+    function drawGround() {
+      const horizonP = projectStereo(0, GRID_Y, CITY_HORIZON_Z, w, eyeSign);
+      const g = ctx.createLinearGradient(0, horizonP.sy, 0, h);
+      g.addColorStop(0, '#101c2c'); g.addColorStop(0.25, '#0a1320'); g.addColorStop(1, '#03060c');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, horizonP.sy, w, Math.max(0, h - horizonP.sy));
+    }
+    items.push({ z: Z_FAR + 100, draw: drawGround });
+
+    function drawCityGlow() {
+      const horizonP = projectStereo(0, GRID_Y, CITY_HORIZON_Z, w, eyeSign);
+      const glow = ctx.createLinearGradient(0, horizonP.sy - 220 * s, 0, horizonP.sy + 40 * s);
+      glow.addColorStop(0, 'rgba(80,120,180,0)'); glow.addColorStop(0.7, 'rgba(90,130,190,0.16)'); glow.addColorStop(1, 'rgba(130,160,210,0.30)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, horizonP.sy - 220 * s, w, 260 * s);
+    }
+    items.push({ z: Z_FAR + 90, draw: drawCityGlow });
+
+    function drawCityBuilding(b) {
+      const bottom = projectStereo(b.x, GRID_Y, b.z, w, eyeSign);
+      const top = projectStereo(b.x, GRID_Y - b.h, b.z, w, eyeSign);
+      const bw = b.w * bottom.scale, bx = bottom.sx - bw / 2;
+      const by = top.sy, bh = bottom.sy - top.sy;
+      if (bh <= 0 || bw <= 0) return;
+      ctx.fillStyle = b.color;
+      ctx.fillRect(bx, by, bw, bh);
+      ctx.fillStyle = 'rgba(90,120,160,0.25)';
+      ctx.fillRect(bx, by, bw, Math.max(1, bh * 0.012));
+      if (b.win) {
+        const cw = bw / b.cols, ch = bh / b.rows;
+        const winColor = b.warm ? '255,200,120' : '150,200,255';
+        for (let r = 0; r < b.rows; r++) {
+          for (let c = 0; c < b.cols; c++) {
+            const idx = r * b.cols + c;
+            if (!b.windows[idx]) continue;
+            let a = 0.75;
+            if ((idx % 13) === 0) a = 0.3 + 0.45 * Math.abs(Math.sin(t * 1.1 + b.flickerSeed + idx));
+            ctx.fillStyle = 'rgba(' + winColor + ',' + a.toFixed(2) + ')';
+            ctx.fillRect(bx + c * cw + cw * 0.24, by + r * ch + ch * 0.24, cw * 0.52, ch * 0.52);
+          }
+        }
+      }
+      if (b.tall && Math.sin(t * 2.2 + b.flickerSeed) > 0.55) {
+        const lx = bx + bw / 2, ly = by - 3, lr = 10 * bottom.scale;
+        const glow = ctx.createRadialGradient(lx, ly, 0, lx, ly, lr);
+        glow.addColorStop(0, 'rgba(255,60,60,0.8)'); glow.addColorStop(1, 'rgba(255,60,60,0)');
+        ctx.fillStyle = glow;
+        ctx.fillRect(lx - lr, ly - lr, lr * 2, lr * 2);
+        ctx.beginPath(); ctx.fillStyle = 'rgba(255,90,90,0.95)';
+        ctx.arc(lx, ly, Math.max(1, 2 * bottom.scale), 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    function drawReflection(b) {
+      const bottom = projectStereo(b.x, GRID_Y, b.z, w, eyeSign);
+      const top = projectStereo(b.x, GRID_Y - b.h, b.z, w, eyeSign);
+      const bw = b.w * bottom.scale;
+      const reflH = Math.min(h - bottom.sy, (bottom.sy - top.sy) * 0.35);
+      if (reflH <= 0) return;
+      const g = ctx.createLinearGradient(0, bottom.sy, 0, bottom.sy + reflH);
+      g.addColorStop(0, 'rgba(70,100,140,0.18)'); g.addColorStop(1, 'rgba(70,100,140,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(bottom.sx - bw / 2, bottom.sy, bw, reflH);
+    }
+    for (let i = 0; i < cityBuildings.length; i++) {
+      const b = cityBuildings[i];
+      items.push({ z: b.z, draw: () => drawCityBuilding(b) });
+      if (b.z < 1400) items.push({ z: b.z - 0.5, draw: () => drawReflection(b) });
+    }
+    function drawTraffic() {
+      for (let i = 0; i < traffic.length; i++) {
+        const car = traffic[i];
+        const spread = spreadX(car.z) * 0.95;
+        const p = (car.offset + t * car.speed / 3000) % 1;
+        const x = car.dir === 1 ? (-spread + p * 2 * spread) : (spread - p * 2 * spread);
+        const pp = projectStereo(x, GRID_Y - 10, car.z, w, eyeSign);
+        const r = Math.max(1, 5 * pp.scale);
+        const glow = ctx.createRadialGradient(pp.sx, pp.sy, 0, pp.sx, pp.sy, r * 4);
+        glow.addColorStop(0, 'rgba(' + car.color + ',0.5)'); glow.addColorStop(1, 'rgba(' + car.color + ',0)');
+        ctx.fillStyle = glow;
+        ctx.fillRect(pp.sx - r * 4, pp.sy - r * 4, r * 8, r * 8);
+        ctx.beginPath(); ctx.fillStyle = 'rgba(' + car.color + ',0.95)';
+        ctx.arc(pp.sx, pp.sy, r, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    items.push({ z: 1090, draw: drawTraffic });
+    depthSortedDraw(items, clockZ, drawClockHere);
+  }
+
+  function drawSnowfall(ctx, eyeSign, t, w, h, clockZ, drawClockHere) {
+    vGrad(ctx, w, h, [[0, '#141c2c'], [1, '#060a12']]);
+    function drawFlake(sf) {
+      let y = ((sf.y0 + t * sf.speed) % sf.range);
+      if (y > sf.range / 2) y -= sf.range;
+      const x = sf.x + Math.sin(t * 0.6 + sf.swaySeed) * sf.swayAmp;
+      const p = projectStereo(x, y, sf.z, w, eyeSign);
+      const depthFrac = (sf.z - Z_NEAR) / (Z_FAR - Z_NEAR);
+      const alpha = Math.max(0.25, 1 - depthFrac * 0.75);
+      ctx.beginPath();
+      ctx.fillStyle = 'rgba(255,255,255,' + alpha.toFixed(3) + ')';
+      ctx.arc(p.sx, p.sy, Math.max(0.5, sf.r * p.scale), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    for (let i = 0; i < snowflakes.length; i++) if (snowflakes[i].z > clockZ) drawFlake(snowflakes[i]);
+    drawClockHere();
+    for (let i = 0; i < snowflakes.length; i++) if (snowflakes[i].z <= clockZ) drawFlake(snowflakes[i]);
+  }
+
+  function drawBubbles(ctx, eyeSign, t, w, h, clockZ, drawClockHere) {
+    vGrad(ctx, w, h, [[0, '#062a3a'], [1, '#01070c']]);
+    function drawBubble(b) {
+      let y = ((b.y0 - t * b.speed) % b.range);
+      if (y < -b.range / 2) y += b.range;
+      const x = b.x + Math.sin(t * 0.5 + b.swaySeed) * b.swayAmp;
+      const p = projectStereo(x, y, b.z, w, eyeSign);
+      const r = Math.max(0.6, b.r * p.scale);
+      ctx.beginPath();
+      ctx.strokeStyle = 'hsla(' + b.hue.toFixed(0) + ',85%,70%,0.8)';
+      ctx.lineWidth = Math.max(0.6, r * 0.14);
+      ctx.arc(p.sx, p.sy, r, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath();
+      ctx.fillStyle = 'hsla(' + b.hue.toFixed(0) + ',90%,85%,0.35)';
+      ctx.arc(p.sx - r * 0.3, p.sy - r * 0.3, r * 0.3, 0, Math.PI * 2); ctx.fill();
+    }
+    for (let i = 0; i < bubbles.length; i++) if (bubbles[i].z > clockZ) drawBubble(bubbles[i]);
+    drawClockHere();
+    for (let i = 0; i < bubbles.length; i++) if (bubbles[i].z <= clockZ) drawBubble(bubbles[i]);
+  }
+
+  // --- Optimized Star Tunnel (Restored Full Dynamic Rainbow Color & Ultra-High FPS) ---
+  function drawTunnel(ctx, eyeSign, t, w, h, clockZ, drawClockHere) {
+    fillBg(ctx, w, h, '#04030a');
+    const resScale = w / WORLD_W, cx = w / 2, cy = h / 2, maxRadius = 1500;
+    function starZ(st) { const p = (t * st.speed + st.offset) % 1; return Z_FAR - p * (Z_FAR - 200); }
+
+    function drawStar(st) {
+      const p = (t * st.speed + st.offset) % 1;
+      const screenR = maxRadius * Math.pow(p, 1.8) * resScale;
+      const dispZ = Z_FAR - p * (Z_FAR - 200);
+      const disp = disparityFor(dispZ, w) * eyeSign * 0.5;
+      const sx = cx + Math.cos(st.angle) * screenR + disp, sy = cy + Math.sin(st.angle) * screenR;
+      const hue = (st.hue + t * 25) % 360;
+      const size = Math.max(0.6, st.size * (0.3 + p * 2.2) * resScale);
+      const alpha = 0.35 + 0.65 * p;
+
+      ctx.fillStyle = 'hsla(' + hue.toFixed(0) + ',90%,65%,' + alpha.toFixed(3) + ')';
+      ctx.beginPath();
+      ctx.arc(sx, sy, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    for (let i = 0; i < tunnelStars.length; i++) if (starZ(tunnelStars[i]) > clockZ) drawStar(tunnelStars[i]);
+    drawClockHere();
+    for (let i = 0; i < tunnelStars.length; i++) if (starZ(tunnelStars[i]) <= clockZ) drawStar(tunnelStars[i]);
+  }
+
+  function drawAurora(ctx, eyeSign, t, w, h, clockZ, drawClockHere) {
+    vGrad(ctx, w, h, [[0, '#050914'], [0.6, '#030710'], [1, '#01030a']]);
+    const washP = projectStereo(0, -200, 1300, w, eyeSign);
+    const wash = ctx.createRadialGradient(washP.sx, washP.sy, 0, washP.sx, washP.sy, w * 0.75);
+    wash.addColorStop(0, 'rgba(60,150,140,0.16)'); wash.addColorStop(1, 'rgba(60,150,140,0)');
+    ctx.fillStyle = wash; ctx.fillRect(0, 0, w, h);
+
+    function drawStar(st) {
+      const p = projectStereo(st.x, st.y, st.z, w, eyeSign);
+      const a = 0.35 + 0.5 * (0.5 + 0.5 * Math.sin(t * st.tw + st.ph));
+      ctx.beginPath(); ctx.fillStyle = 'rgba(225,235,245,' + a.toFixed(3) + ')';
+      ctx.arc(p.sx, p.sy, Math.max(0.8, st.r * p.scale), 0, Math.PI * 2); ctx.fill();
+    }
+
+    function drawRibbon(rb) {
+      ctx.globalCompositeOperation = 'lighter';
+      const half = spreadX(rb.z) * 1.15;
+      const rays = 40, step = (half * 2) / rays;
+      for (let k = 0; k <= rays; k++) {
+        const wx = -half + k * step;
+        const yBase = rb.baseY + Math.sin(wx * rb.freq + t * rb.speed + rb.phase) * rb.amp;
+        const rayMod = 0.5 + 0.5 * Math.sin(wx * rb.rayFreq + t * rb.speed * 1.7 + rb.rayPhase);
+        const intensity = rayMod * rayMod;
+        if (intensity < 0.04) continue;
+        const hgt = rb.rayHeight * (0.55 + 0.45 * rayMod);
+        const pb = projectStereo(wx, yBase, rb.z, w, eyeSign);
+        const pt = projectStereo(wx, yBase - hgt, rb.z, w, eyeSign);
+        const a = 0.42 * intensity;
+        const grad = ctx.createLinearGradient(pb.sx, pb.sy, pt.sx, pt.sy);
+        grad.addColorStop(0, 'hsla(' + rb.base[0] + ',' + rb.base[1] + '%,' + rb.base[2] + '%,' + a + ')');
+        grad.addColorStop(0.55, 'hsla(' + rb.base[0] + ',' + rb.base[1] + '%,' + (rb.base[2] - 8) + '%,' + (a * 0.45) + ')');
+        grad.addColorStop(1, 'hsla(' + rb.top[0] + ',' + rb.top[1] + '%,' + rb.top[2] + '%,0)');
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = Math.max(1.5, step * 0.7 * pb.scale);
+        ctx.beginPath(); ctx.moveTo(pb.sx, pb.sy); ctx.lineTo(pt.sx, pt.sy); ctx.stroke();
+      }
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    const ridgeZ = AURORA_RIDGE_Z;
+    function drawRidge() {
+      const ridgeHalf = spreadX(ridgeZ) * 1.15;
+      ctx.beginPath();
+      for (let i = 0; i < auroraRidge.length; i++) {
+        const pt = auroraRidge[i], x = -ridgeHalf + pt.xf * ridgeHalf * 2;
+        const p = projectStereo(x, GRID_Y - pt.h, ridgeZ, w, eyeSign);
+        if (i === 0) ctx.moveTo(p.sx, p.sy); else ctx.lineTo(p.sx, p.sy);
+      }
+      ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath();
+      ctx.fillStyle = '#050a10'; ctx.fill();
+    }
+
+    const items = [];
+    for (let i = 0; i < auroraStars.length; i++) { const st = auroraStars[i]; items.push({ z: st.z, draw: () => drawStar(auroraStars[i]) }); }
+    for (let i = 0; i < auroraRibbons.length; i++) { const rb = auroraRibbons[i]; items.push({ z: rb.z, draw: () => drawRibbon(auroraRibbons[i]) }); }
+    items.push({ z: ridgeZ, draw: drawRidge });
+    depthSortedDraw(items, clockZ, drawClockHere);
+  }
+
+  function drawDunes(ctx, eyeSign, t, w, h, clockZ, drawClockHere) {
+    vGrad(ctx, w, h, [[0, '#2a1630'], [0.45, '#7a3a4a'], [0.7, '#e08a52'], [1, '#f6c98a']]);
+    const sunZ = Z_FAR - 400;
+    function drawSun() {
+      const sunP = projectStereo(0, 40, sunZ, w, eyeSign);
+      const sunR = 260 * sunP.scale;
+      ctx.beginPath(); ctx.fillStyle = 'rgba(255,214,150,0.9)';
+      ctx.arc(sunP.sx, sunP.sy, sunR, 0, Math.PI * 2); ctx.fill();
+    }
+    function drawLayer(layer) {
+      const half = spreadX(layer.z) * 1.6;
+      ctx.beginPath();
+      for (let j = 0; j < layer.points.length; j++) {
+        const pt = layer.points[j], x = -half + pt.xf * half * 2;
+        const p = projectStereo(x, GRID_Y - pt.h, layer.z, w, eyeSign);
+        if (j === 0) ctx.moveTo(p.sx, p.sy); else ctx.lineTo(p.sx, p.sy);
+      }
+      ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath();
+      ctx.fillStyle = layer.color; ctx.fill();
+    }
+    const items = [];
+    items.push({ z: sunZ, draw: drawSun });
+    for (let i = 0; i < duneLayers.length; i++) items.push({ z: duneLayers[i].z, draw: () => drawLayer(duneLayers[i]) });
+    depthSortedDraw(items, clockZ, drawClockHere);
+  }
+
+  // --- Optimized Fireflies (Restored Vibrant Firefly Colors & High FPS) ---
+  function drawFireflies(ctx, eyeSign, t, w, h, clockZ, drawClockHere) {
+    vGrad(ctx, w, h, [[0, '#02140f'], [1, '#010805']]);
+    function flyZ(f) { return f.z0 + Math.sin(t * f.fz + f.pz) * f.az; }
+
+    function drawFly(f, z) {
+      const x = f.x0 + Math.sin(t * f.fx + f.px) * f.ax;
+      const y = f.y0 + Math.sin(t * f.fy + f.py) * f.ay;
+      const p = projectStereo(x, y, z, w, eyeSign);
+      const blink = 0.35 + 0.65 * Math.max(0, Math.sin(t * f.blinkF + f.blinkP));
+      const r = Math.max(0.6, 4 * p.scale);
+
+      ctx.fillStyle = 'hsla(' + f.hue.toFixed(0) + ',95%,65%,' + blink.toFixed(3) + ')';
+      ctx.beginPath();
+      ctx.arc(p.sx, p.sy, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    for (let i = 0; i < fireflies.length; i++) { const z = flyZ(fireflies[i]); if (z > clockZ) drawFly(fireflies[i], z); }
+    drawClockHere();
+    for (let i = 0; i < fireflies.length; i++) { const z = flyZ(fireflies[i]); if (z <= clockZ) drawFly(fireflies[i], z); }
+  }
+
+  function drawMatrix(ctx, eyeSign, t, w, h, clockZ, drawClockHere) {
+    fillBg(ctx, w, h, '#000');
+    const flickerFrame = Math.floor(t * 6), resScaleY = h / WORLD_H;
+    function drawGlyph(chIdx, dx, dy, size, alpha, head) {
+      const atlas = head ? glyphAtlasHead : glyphAtlasGreen;
+      const sx = (chIdx % ATLAS_COLS) * GLYPH_CELL, sy = Math.floor(chIdx / ATLAS_COLS) * GLYPH_CELL;
+      const dest = size * GLYPH_SCALE;
+      ctx.globalAlpha = alpha;
+      ctx.drawImage(atlas, sx, sy, GLYPH_CELL, GLYPH_CELL, dx - dest / 2, dy - dest / 2, dest, dest);
+    }
+    function drawColumn(c, i) {
+      let headY = ((c.y0 + t * c.speed) % c.range);
+      if (headY > c.range / 2) headY -= c.range;
+      const p0 = projectStereo(c.x, headY, c.z, w, eyeSign);
+      const fontSize = Math.max(6, 26 * p0.scale);
+      const yStep = c.spacing * (FOCAL / (FOCAL + c.z)) * resScaleY;
+      let sy = p0.sy;
+      for (let j = 0; j < c.trail; j++) {
+        if (sy > -fontSize && sy < h + fontSize) {
+          const fade = 1 - j / c.trail;
+          const rnd = hashRand(c.seed + j * 13.1 + flickerFrame, i, j);
+          const chIdx = Math.floor(rnd * MATRIX_CHARS.length);
+          drawGlyph(chIdx, p0.sx, sy, fontSize, j === 0 ? fade : fade * 0.85, j === 0);
+        }
+        sy -= yStep;
+      }
+    }
+    for (let i = 0; i < matrixColumns.length; i++) if (matrixColumns[i].z > clockZ) drawColumn(matrixColumns[i], i);
+    ctx.globalAlpha = 1;
+    drawClockHere();
+    for (let i = 0; i < matrixColumns.length; i++) if (matrixColumns[i].z <= clockZ) drawColumn(matrixColumns[i], i);
+    ctx.globalAlpha = 1;
+  }
+
+  const SCENES = { deepspace: drawDeepSpace, neongrid: drawNeonGrid, cityskyline: drawCitySkyline, snowfall: drawSnowfall, bubbles: drawBubbles, tunnel: drawTunnel, aurora: drawAurora, dunes: drawDunes, fireflies: drawFireflies, matrix: drawMatrix };
+  const SCENE_ORDER = ['deepspace', 'neongrid', 'cityskyline', 'snowfall', 'bubbles', 'tunnel', 'aurora', 'dunes', 'fireflies', 'matrix'];
+  const SCENE_LABELS = { deepspace: 'Deep Space', neongrid: 'Neon Grid', cityskyline: 'City Skyline', snowfall: 'Snowfall', bubbles: 'Bubbles', tunnel: 'Star Tunnel', aurora: 'Aurora', dunes: 'Desert Dunes', fireflies: 'Fireflies', matrix: 'The Matrix' };
+
+  function clockWorldPos(t) {
+    return { x: 460 * Math.sin(t * 0.13), y: -160 + 150 * Math.sin(t * 0.09 + 1.3), z: 750 + 250 * Math.sin(t * 0.07 + 2.1) };
+  }
+  function drawClock(ctx, eyeSign, t, w) {
+    const c = clockWorldPos(t);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const p = projectStereo(c.x, c.y, c.z, w, eyeSign);
+    const fontSize = Math.max(14, 150 * p.scale * clockSizeMultiplier(clockSizePct));
+    ctx.font = '600 ' + fontSize.toFixed(1) + 'px "IBM Plex Mono", monospace';
+    ctx.fillStyle = '#eaf7f4';
+    ctx.fillText(currentClockStr, p.sx, p.sy);
+  }
+
+  function renderEye(ctx, eyeSign, t, overrideW, overrideH) {
+    const w = overrideW || ctx.canvas.width;
+    const h = overrideH || ctx.canvas.height;
+    frameEyeH = h;
+    const clockZ = clockWorldPos(t).z;
+    const drawClockHere = () => drawClock(ctx, eyeSign, t, w);
+    const fn = SCENES[sceneId] || drawDeepSpace;
+    fn(ctx, eyeSign, t, w, h, clockZ, drawClockHere);
+    drawHud(ctx, w, h, eyeSign);
+  }
+
+  function resizeCanvases() {
+    const dpr = window.devicePixelRatio || 1;
+    const scale = perfModeBox.checked ? 0.5 : 1.0;
+    const w = Math.max(2, Math.round(window.innerWidth * dpr * scale));
+    const h = Math.max(2, Math.round(window.innerHeight * dpr * scale));
+    [leftBuf, rightBuf].forEach(c => { c.width = w; c.height = h; });
+    outputCanvas.width = Math.max(2, Math.round(window.innerWidth * dpr));
+    outputCanvas.height = Math.max(2, Math.round(window.innerHeight * dpr));
+    outputCanvas.style.width = window.innerWidth + 'px';
+    outputCanvas.style.height = window.innerHeight + 'px';
+  }
+
+  function composite() {
+    const w = outputCanvas.width, h = outputCanvas.height;
+    const L = swapEyes ? rightBuf : leftBuf, R = swapEyes ? leftBuf : rightBuf;
+    const lw = L.width, lh = L.height;
+    const rw = R.width, rh = R.height;
+
+    if (format === 'hsbs') {
+      outCtx.globalCompositeOperation = 'source-over';
+      outCtx.drawImage(L, 0, 0, lw, lh, 0, 0, w / 2, h);
+      outCtx.drawImage(R, 0, 0, rw, rh, w / 2, 0, w / 2, h);
+    } else if (format === 'htab') {
+      outCtx.globalCompositeOperation = 'source-over';
+      outCtx.drawImage(L, 0, 0, lw, lh, 0, 0, w, h / 2);
+      outCtx.drawImage(R, 0, 0, rw, rh, 0, h / 2, w, h / 2);
+    } else {
+      outCtx.globalCompositeOperation = 'source-over';
+      outCtx.drawImage(R, 0, 0, rw, rh, 0, 0, w, h);
+      outCtx.globalCompositeOperation = 'destination-in';
+      outCtx.fillStyle = interlacePattern;
+      outCtx.fillRect(0, 0, w, h);
+      outCtx.globalCompositeOperation = 'destination-over';
+      outCtx.drawImage(L, 0, 0, lw, lh, 0, 0, w, h);
+      outCtx.globalCompositeOperation = 'source-over';
+    }
+  }
+
+  function loop() {
+    if (!running) return;
+    updateFps();
+    updateClockTimeStr();
+    const t = performance.now() / 1000;
+    frameInvConvZ = (1 / Z_NEAR) + ((1 / Z_FAR) - (1 / Z_NEAR)) * (convPct / 200);
+    frameEyeSep = MAX_EYE_SEP * (depthPct / 200);
+    renderEye(leftCtx, -1, t);
+    renderEye(rightCtx, 1, t);
+    composite();
+    requestAnimationFrame(loop);
+  }
+
+  function requestFs(el) { const fn = el.requestFullscreen || el.webkitRequestFullscreen; if (fn) return fn.call(el); return Promise.resolve(); }
+  function exitFs() { const fn = document.exitFullscreen || document.webkitExitFullscreen; if (fn && (document.fullscreenElement || document.webkitFullscreenElement)) return fn.call(document); }
+  function isFullscreen() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+
+  let xrSession = null, xrGl = null, xrRefSpace = null;
+  let xrProgram = null, xrQuadBuf = null, xrLeftTex = null, xrRightTex = null;
+  let xrActive = false;
+
+  function setupXRShaders() {
+    const gl = xrGl;
+    const vs = 'attribute vec2 aPos; varying vec2 vUv; void main(){ vUv = vec2(aPos.x * 0.5 + 0.5, 0.5 - aPos.y * 0.5); gl_Position = vec4(aPos, 0.0, 1.0); }';
+    const fs = 'precision mediump float; varying vec2 vUv; uniform sampler2D uTex; void main(){ gl_FragColor = texture2D(uTex, vUv); }';
+    function compile(type, src) {
+      const s = gl.createShader(type);
+      gl.shaderSource(s, src);
+      gl.compileShader(s);
+      return s;
+    }
+    xrProgram = gl.createProgram();
+    gl.attachShader(xrProgram, compile(gl.VERTEX_SHADER, vs));
+    gl.attachShader(xrProgram, compile(gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(xrProgram);
+    xrQuadBuf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, xrQuadBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+    function makeTex() {
+      const t = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      return t;
+    }
+    xrLeftTex = makeTex();
+    xrRightTex = makeTex();
+  }
+
+  async function startWebXR() {
+    if (!navigator.xr) { alert('WebXR is not supported in this browser.'); return; }
+    let supported = false;
+    try { supported = await navigator.xr.isSessionSupported('immersive-vr'); } catch (e) {}
+    if (!supported) { alert('Immersive VR is not supported on this device.'); return; }
+
+    depthPct = parseInt(depthSlider.value, 10);
+    convPct = parseInt(convSlider.value, 10);
+    clockSizePct = parseInt(clockSizeSlider.value, 10);
+    sceneId = sceneSelect.value;
+    swapEyes = swapEyesBox.checked;
+
+    try {
+      xrSession = await navigator.xr.requestSession('immersive-vr');
+    } catch (e) { alert('Could not start WebXR session: ' + e.message); return; }
+
+    if (!xrGl) {
+      const glCanvas = document.createElement('canvas');
+      const dpr = window.devicePixelRatio || 1;
+      glCanvas.width = Math.max(2, Math.round(window.innerWidth * dpr));
+      glCanvas.height = Math.max(2, Math.round(window.innerHeight * dpr));
+      xrGl = glCanvas.getContext('webgl', { xrCompatible: true });
+      if (!xrGl) { alert('WebGL is not available.'); xrSession.end(); xrSession = null; return; }
+    }
+    if (xrGl.makeXRCompatible) { try { await xrGl.makeXRCompatible(); } catch (e) {} }
+
+    xrSession.updateRenderState({ baseLayer: new XRWebGLLayer(xrSession, xrGl) });
+    xrRefSpace = await xrSession.requestReferenceSpace('local');
+
+    if (!xrProgram) setupXRShaders();
+
+    xrActive = true;
+    viewerStartTime = performance.now();
+    enterIsDown = false;
+    enterHoldTriggered = false;
+    menu.hidden = true;
+    player.hidden = true;
+    document.addEventListener('keydown', onViewerKeydown);
+    document.addEventListener('keyup', onViewerKeyup);
+
+    xrSession.addEventListener('end', () => {
+      xrActive = false;
+      xrSession = null;
+      backToMenu();
+    });
+
+    xrSession.requestAnimationFrame(onXRFrame);
+  }
+
+  function onXRFrame(time, frame) {
+    if (!xrActive || !xrSession) return;
+    xrSession.requestAnimationFrame(onXRFrame);
+
+    const session = frame.session;
+    const pose = frame.getViewerPose(xrRefSpace);
+    const glLayer = session.renderState.baseLayer;
+    const gl = xrGl;
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
+    gl.clearColor(0, 0, 0, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    if (!pose) return;
+
+    updateFps();
+    updateClockTimeStr();
+    frameInvConvZ = (1 / Z_NEAR) + ((1 / Z_FAR) - (1 / Z_NEAR)) * (convPct / 200);
+    frameEyeSep = MAX_EYE_SEP * (depthPct / 200);
+    const t = time / 1000;
+
+    gl.useProgram(xrProgram);
+    const aPos = gl.getAttribLocation(xrProgram, 'aPos');
+    gl.bindBuffer(gl.ARRAY_BUFFER, xrQuadBuf);
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+    gl.disable(gl.DEPTH_TEST);
+    gl.disable(gl.CULL_FACE);
+    gl.disable(gl.SCISSOR_TEST);
+
+    for (const view of pose.views) {
+      const viewport = glLayer.getViewport(view);
+      const isLeftEye = (view.eye !== 'right');
+      const eyeSign = isLeftEye ? (swapEyes ? 1 : -1) : (swapEyes ? -1 : 1);
+      const buf = isLeftEye ? leftBuf : rightBuf;
+      const ectx = isLeftEye ? leftCtx : rightCtx;
+      const tex = isLeftEye ? xrLeftTex : xrRightTex;
+
+      const scale = perfModeBox.checked ? 0.5 : 1.0;
+      const targetW = Math.max(2, Math.round(viewport.width * scale));
+      const targetH = Math.max(2, Math.round(viewport.height * scale));
+
+      if (buf.width !== targetW || buf.height !== targetH) {
+        buf.width = targetW;
+        buf.height = targetH;
+      }
+
+      // Logical full-frame dimensions for half-width SBS eye viewport:
+      const drawW = targetW * 2;
+      const drawH = targetH;
+      frameWorldH = WORLD_W * (drawH / drawW);
+
+      // Pre-squeeze canvas context horizontally (0.5x) so display's 2x expansion yields 1:1 aspect ratio:
+      ectx.save();
+      ectx.scale(targetW / drawW, 1.0);
+      renderEye(ectx, eyeSign, t, drawW, drawH);
+      ectx.restore();
+
+      frameWorldH = WORLD_H;
+
+      gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+  }
+
+  let fsExitViaF = false;
+  function onFsChange() {
+    if (!isFullscreen()) {
+      if (fsExitViaF) { fsExitViaF = false; } else { backToMenu(); }
+    }
+  }
+  document.addEventListener('fullscreenchange', onFsChange);
+  document.addEventListener('webkitfullscreenchange', onFsChange);
+
+  let cursorTimer = null;
+  function showCursor() {
+    player.classList.remove('cursor-hidden');
+    clearTimeout(cursorTimer);
+    cursorTimer = setTimeout(() => player.classList.add('cursor-hidden'), 2200);
+  }
+  player.addEventListener('mousemove', showCursor);
+  player.addEventListener('click', () => { if (running && !isFullscreen()) requestFs(player); });
+
+  function backToMenu() {
+    running = false;
+    xrActive = false;
+    cancelTouchTimers();
+    if (enterHoldTimer) { clearTimeout(enterHoldTimer); enterHoldTimer = null; }
+    enterIsDown = false;
+    enterHoldTriggered = false;
+    viewerStartTime = 0;
+    document.removeEventListener('keydown', onViewerKeydown);
+    document.removeEventListener('keyup', onViewerKeyup);
+    player.hidden = true;
+    player.classList.remove('cursor-hidden');
+    clearTimeout(cursorTimer);
+    menu.hidden = false;
+  }
+
+  function startViewer() {
+    if (formatSelect.value === 'webxr') { startWebXR(); return; }
+    depthPct = parseInt(depthSlider.value, 10);
+    convPct = parseInt(convSlider.value, 10);
+    clockSizePct = parseInt(clockSizeSlider.value, 10);
+    sceneId = sceneSelect.value;
+    format = formatSelect.value;
+    swapEyes = swapEyesBox.checked;
+    menu.hidden = true;
+    player.hidden = false;
+    resizeCanvases();
+    running = true;
+    viewerStartTime = performance.now();
+    enterIsDown = false;
+    enterHoldTriggered = false;
+    document.addEventListener('keydown', onViewerKeydown);
+    document.addEventListener('keyup', onViewerKeyup);
+    requestAnimationFrame(loop);
+    const fsP = requestFs(player);
+    if (fsP && typeof fsP.catch === 'function') fsP.catch(() => { showHud('param', 'Click for fullscreen', 4000); });
+    showCursor();
+    showHud('esc', 'Esc to exit', 3500);
+  }
+  startBtn.addEventListener('click', startViewer);
+
+  function cycleScene(dir) {
+    const idx = SCENE_ORDER.indexOf(sceneId);
+    sceneId = SCENE_ORDER[(idx + dir + SCENE_ORDER.length) % SCENE_ORDER.length];
+    sceneSelect.value = sceneId;
+    showHud('scene', SCENE_LABELS[sceneId], 1400);
+  }
+
+  const PARAMS = [
+    { label: 'Text size',   slider: clockSizeSlider, readout: clockSizeVal, apply: v => { clockSizePct = v; } },
+    { label: 'Depth',       slider: depthSlider,     readout: depthVal,     apply: v => { depthPct = v; } },
+    { label: 'Convergence', slider: convSlider,      readout: convVal,      apply: v => { convPct = v; } }
+  ];
+  let activeParam = 0;
+  function adjustByIndex(idx, delta) {
+    const p = PARAMS[idx];
+    let v = parseInt(p.slider.value, 10) + delta;
+    v = Math.max(0, Math.min(200, v));
+    p.slider.value = v;
+    p.readout.textContent = v + '%';
+    p.apply(v);
+    showHud('param', p.label + ' ' + v + '%', 1500);
+  }
+  function selectParamOSD() {
+    const p = PARAMS[activeParam];
+    showHud('param', p.label + ' ' + p.slider.value + '%', 1500);
+  }
+
+  // --- FireTV & Keyboard OK Hold State ---
+  let enterHoldTimer = null, enterHoldTriggered = false, enterIsDown = false;
+  let viewerStartTime = 0;
+
+  function onViewerKeydown(e) {
+    const k = e.key;
+    if (k === 'Escape') {
+      if (xrActive && xrSession) { xrSession.end(); }
+      else { exitFs(); backToMenu(); }
+    }
+    else if (k === 'Backspace' || k === 'GoBack' || k === 'BrowserBack') {
+      e.preventDefault();
+      if (xrActive && xrSession) { xrSession.end(); }
+      else { exitFs(); backToMenu(); }
+    }
+    else if (k === 'ArrowRight') { e.preventDefault(); cycleScene(1); }
+    else if (k === 'ArrowLeft') { e.preventDefault(); cycleScene(-1); }
+    else if (k === 'Enter') {
+      e.preventDefault();
+      // Ignore keydown if still ignoring initial release from Start button click
+      if (performance.now() - viewerStartTime < 500) return;
+      // Guard against FireTV remote auto-repeat keydown events while physical key remains held:
+      if (enterIsDown) return;
+      enterIsDown = true;
+      enterHoldTriggered = false;
+
+      enterHoldTimer = setTimeout(() => {
+        showFps = !showFps;
+        enterHoldTriggered = true;
+        enterHoldTimer = null;
+      }, 450);
+    }
+    // Doubled speed for key repeat (holding Up/Down on keyboard/remote D-pad steps by 2)
+    else if (k === 'ArrowUp') { e.preventDefault(); adjustByIndex(activeParam, e.repeat ? 2 : 1); }
+    else if (k === 'ArrowDown') { e.preventDefault(); adjustByIndex(activeParam, e.repeat ? -2 : -1); }
+    else if (k === 'f' || k === 'F') { e.preventDefault(); if (isFullscreen()) { fsExitViaF = true; exitFs(); } else { requestFs(player); } }
+    else if (k === '1') { e.preventDefault(); adjustByIndex(2, e.repeat ? -2 : -1); }
+    else if (k === '2') { e.preventDefault(); adjustByIndex(2, e.repeat ? 2 : 1); }
+    else if (k === '3') { e.preventDefault(); adjustByIndex(0, e.repeat ? -2 : -1); }
+    else if (k === '4') { e.preventDefault(); adjustByIndex(0, e.repeat ? 2 : 1); }
+    else if (k === '5') { e.preventDefault(); adjustByIndex(1, e.repeat ? -2 : -1); }
+    else if (k === '6') { e.preventDefault(); adjustByIndex(1, e.repeat ? 2 : 1); }
+  }
+
+  function onViewerKeyup(e) {
+    if (e.key === 'Enter') {
+      enterIsDown = false;
+      if (enterHoldTimer) {
+        clearTimeout(enterHoldTimer);
+        enterHoldTimer = null;
+      }
+      // Ignore keyup from initial Start click on FireTV (only within 500ms of starting)
+      if (performance.now() - viewerStartTime < 500) {
+        enterHoldTriggered = false;
+        return;
+      }
+      // Only cycle parameters on a short tap (<450ms)
+      if (!enterHoldTriggered) {
+        activeParam = (activeParam + 1) % PARAMS.length;
+        selectParamOSD();
+      }
+      enterHoldTriggered = false;
+    }
+  }
+
+  // --- Touch Gesture Handling for WebXR & Player Modes ---
+  let touchStartX = 0, touchStartY = 0;
+  let lastTapTime = 0, lastTapX = 0, lastTapY = 0;
+  let holdInterval = null;
+  let isSwiping = false, isDoubleTap = false, holdDelta = 0;
+
+  function cancelTouchTimers() {
+    if (holdInterval) { clearInterval(holdInterval); holdInterval = null; }
+  }
+
+  function handleTouchStart(e) {
+    if (!running && !xrActive) return;
+
+    // 3-finger touch toggles FPS OSD
+    if (e.touches.length === 3) {
+      if (e.cancelable) e.preventDefault();
+      cancelTouchTimers();
+      showFps = !showFps;
+      return;
+    }
+
+    if (e.touches.length > 1) { cancelTouchTimers(); return; }
+
+    const touch = e.touches[0];
+    const x = touch.clientX, y = touch.clientY, t = performance.now();
+
+    isSwiping = false;
+    isDoubleTap = false;
+    cancelTouchTimers();
+
+    // Double tap detection (cycles selected parameter)
+    if ((t - lastTapTime < 300) && Math.hypot(x - lastTapX, y - lastTapY) < 40) {
+      if (e.cancelable) e.preventDefault();
+      isDoubleTap = true;
+      lastTapTime = 0;
+      activeParam = (activeParam + 1) % PARAMS.length;
+      selectParamOSD();
+      return;
+    }
+
+    lastTapTime = t;
+    lastTapX = x;
+    lastTapY = y;
+    touchStartX = x;
+    touchStartY = y;
+
+    if (e.cancelable) e.preventDefault();
+  }
+
+  function handleTouchMove(e) {
+    if ((!running && !xrActive) || !e.touches.length || isDoubleTap) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - touchStartX;
+    const dy = touch.clientY - touchStartY;
+    const absX = Math.abs(dx);
+    const absY = Math.abs(dy);
+
+    if (!isSwiping) {
+      // Horizontal swipe (Left / Right scene navigation)
+      if (absX > 45 && absX > absY * 1.2) {
+        isSwiping = true;
+        if (dx < 0) { cycleScene(1); }    // Swipe Left = Next Scene
+        else { cycleScene(-1); }          // Swipe Right = Previous Scene
+      }
+      // Vertical swipe (Up / Down parameter adjustment)
+      else if (absY > 45 && absY > absX * 1.2) {
+        isSwiping = true;
+        holdDelta = (dy < 0) ? 1 : -1;    // Swipe Up = +1, Swipe Down = -1
+        adjustByIndex(activeParam, holdDelta);
+
+        // Continuous fast adjustment (every 40ms) when finger is held on screen
+        cancelTouchTimers();
+        holdInterval = setInterval(() => {
+          adjustByIndex(activeParam, holdDelta);
+        }, 40);
+      }
+    }
+    if (e.cancelable) e.preventDefault();
+  }
+
+  function handleTouchEnd(e) {
+    if (!running && !xrActive) return;
+    cancelTouchTimers();
+    if (e.cancelable) e.preventDefault();
+  }
+
+  window.addEventListener('touchstart', handleTouchStart, { passive: false });
+  window.addEventListener('touchmove', handleTouchMove, { passive: false });
+  window.addEventListener('touchend', handleTouchEnd, { passive: false });
+  window.addEventListener('touchcancel', () => { cancelTouchTimers(); });
+
+  window.addEventListener('resize', () => { if (!player.hidden) resizeCanvases(); });
+})();
+</script>
+</body>
+</html>
