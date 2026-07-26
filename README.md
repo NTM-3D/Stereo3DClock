@@ -32,6 +32,7 @@ floats through the scene and is depth-sorted with the rest of the objects.
 - **Interlaced** – alternating rows for line-interlaced 3D displays.
 - **Half TAB** – top-and-bottom, each eye squeezed into half height.
 - **Half SBS** – side-by-side, each eye squeezed into half width.
+- **WebXR** – side-by-side, each eye squeezed into half width.
 
 A "Swap eyes" option is available if a display's left/right output is reversed.
 
@@ -39,8 +40,8 @@ A "Swap eyes" option is available if a display's left/right output is reversed.
 
 Depth, convergence, and clock text size are adjustable from the menu before
 starting, or live during playback. Once the viewer is running, press the
-on-screen **?** button (or open the help panel) for the full list of keyboard
-shortcuts.
+on-screen **?** button (or open the help panel) for the full list of keyboard, remote
+and touch controls.
 
 ## URL parameters
 
